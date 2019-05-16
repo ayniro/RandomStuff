@@ -2,7 +2,7 @@
 
 Basic implementation, none of them work on binary files.
 
-Doesn't support correct Windows-style newline characters (so original and decoded files may not be exactly similar).
+Doesn't support Windows-style newline characters (so original and decoded files may not be exactly similar).
 
 ### Naive RLE Algorithm
 
