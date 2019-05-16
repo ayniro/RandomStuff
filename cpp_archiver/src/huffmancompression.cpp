@@ -8,7 +8,7 @@ std::pair<bool, QString> HuffmanCompression::compressFile(const QString &inputPa
 {
 	auto symbolsAmount = getSymbolsAmountMap(inputPath);
 	QList<HuffmanNode*> charNodes;
-	initCharNodes(symbolsAmount, charNodes);
+	auto root = initCharNodes(symbolsAmount, charNodes);
 
 	// Contains symbols from text with corresponding code
 	QMap<QChar, QBitArray> huffmanCodes;
@@ -74,6 +74,7 @@ std::pair<bool, QString> HuffmanCompression::compressFile(const QString &inputPa
 		logFile.close();
 	}
 
+	delete root;
 	return std::make_pair(true, "Operation Successful");
 }
 
@@ -208,6 +209,7 @@ std::pair<bool, QString> HuffmanCompression::decompressFile(const QString &input
 	inputStream.close();
 	outputFile.close();
 
+	delete root;
 	return std::make_pair(true, "Operation Successful");
 }
 
