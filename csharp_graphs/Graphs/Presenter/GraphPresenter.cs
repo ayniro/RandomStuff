@@ -34,12 +34,22 @@ namespace Graphs.Presenter
         int OnMaxFlowCall();
         int OnMinCostFlowCall();
 
+        void OnMakeEulerianCall();
+
+        void OnMakeHamiltonianCall();
+
+        void OnFindEulerianCycleCall();
+        void OnFindHamiltonianCycleCall();
+
         void SaveGraph();
         void LoadSavedGraph();
-        
+
         bool IsGraphGenerated();
         bool IsSstGenerated();
         bool IsFlowNetworkGenerated();
+        bool WasModified();
+        bool IsEulerian();
+        bool IsHamiltonian();
         void ResetGraph();
         int MaxVertices { get; }
         int Vertices { get; }
@@ -59,6 +69,7 @@ namespace Graphs.Presenter
         private bool _sstGenerated;
         private bool _flowNetworkGenerated;
         private int _logEntryNumber = 1;
+        private bool _wasModified;
 
         public GraphPresenter(IGraphView view, int maxVertices = 25)
         {
@@ -68,6 +79,8 @@ namespace Graphs.Presenter
             MaxVertices = maxVertices;
         }
 
+        #region General
+
         public void OnGraphPropertiesSet(int vertices, double density, int minWeight, int maxWeight)
         {
             _graphMatrix = new GraphMatrix(vertices, density, minWeight, maxWeight);
@@ -75,6 +88,7 @@ namespace Graphs.Presenter
             _graphGenerated = true;
             _sstGenerated = false;
             _flowNetworkGenerated = false;
+            _wasModified = false;
             _graphMatrix.OutputToFile();
             _view.AppendToLog(
                 $"{_logEntryNumber++}: Generated Graph's Adjacency Matrix:" +
@@ -86,252 +100,6 @@ namespace Graphs.Presenter
             UpdateViewGraphImage();
         }
 
-        public void OnShimbelAlgorithmCall(IPresenterConnectedDialog dialog, int edgesAmount, bool shortestPaths)
-        {
-            var matrix = ShimbelAlgorithm.FindPaths(_graphMatrix, edgesAmount, shortestPaths);
-
-            string matrixStr = MatrixPrinter.GetMatrix(matrix);
-
-            _view.AppendToLog($"{_logEntryNumber++}: Shimbel's Algorithm for " +
-                              (shortestPaths ? "shortest" : "longest") +
-                              $" paths ({edgesAmount} edges):" +
-                              Environment.NewLine +
-                              matrixStr + Environment.NewLine);
-
-            dialog.SetData(matrixStr);
-        }
-
-        public void OnCheckPathAlgorithmCall(IPresenterConnectedDialog dialog, int first, int second)
-        {
-            bool result = PathExistenceChecker.CheckPathExistence(_graphMatrix.GetAdjacencyMatrix(), first, second);
-            string data = $"Path between {first} and {second} " + (result ? "exists" : "doesn't exist");
-            _view.AppendToLog($"{_logEntryNumber++}: Check path:" +
-                              Environment.NewLine +
-                              data +
-                              Environment.NewLine + Environment.NewLine);
-            dialog.SetData(data);
-        }
-
-        public void OnFindPathAlgorithmCall(
-            IPresenterConnectedDialog dialog,
-            int first,
-            int second,
-            bool dijkstra,
-            bool bellmanFord,
-            bool floyd)
-        {
-            string strPath;
-            if (dijkstra)
-            {
-                strPath = EvaluateDijkstra(first, second);
-            }
-            else if (bellmanFord)
-            {
-                strPath = EvaluateBellmanFord(first, second);
-            }
-            else if (floyd)
-            {
-                strPath = EvaluateFloyd(first, second);
-            }
-            else
-            {
-                strPath = "Algorithm not specified error";
-            }
-
-            dialog.SetData(strPath);
-        }
-
-        public void OnPrimAlgorithmCall(IPresenterConnectedDialog dialog)
-        {
-            (var tree, int iter) = MinimumSpanningTree.Prim(_graphMatrix);
-            var builder = new StringBuilder();
-            _sstGenerated = true;
-            int weight = 0;
-            if (tree.Count > 0)
-            {
-                for (int i = 0; i < tree.Count; ++i)
-                {
-                    builder.AppendLine((tree[i].Item1 + 1) + " <-> " + (tree[i].Item2 + 1));
-                    weight += _graphMatrix.
-                        GetWeightMatrix()[
-                            Math.Min(tree[i].Item1, tree[i].Item2),
-                            Math.Max(tree[i].Item1, tree[i].Item2)];
-                }
-            }
-            else
-            {
-                builder.Append("SST not found");
-                _sstGenerated = false;
-            }
-
-            _view.AppendToLog($"{_logEntryNumber++}: Prim's Algorithm:" +
-                              Environment.NewLine + 
-                              builder.ToString() + 
-                              $"Weight: {weight}" +
-                              Environment.NewLine +
-                              $"Iterations: {iter}" + 
-                              Environment.NewLine + Environment.NewLine);
-            
-            dialog.SetData("Built SST");
-            _graphMatrix.OutputToFileWithPrim();
-            UpdateViewGraphImage();
-        }
-
-        public void OnKruskalAlgorithmCall(IPresenterConnectedDialog dialog)
-        {
-            (var tree, int iter) = MinimumSpanningTree.Kruskal(_graphMatrix);
-            var builder = new StringBuilder();
-            _sstGenerated = true;
-            int weight = 0;
-            if (tree.Count > 0)
-            {
-                for (int i = 0; i < tree.Count; ++i)
-                {
-                    builder.AppendLine((tree[i].Item1 + 1) + " <-> " + (tree[i].Item2 + 1));
-                    weight += _graphMatrix.
-                        GetWeightMatrix()[
-                            Math.Min(tree[i].Item1, tree[i].Item2),
-                            Math.Max(tree[i].Item1, tree[i].Item2)];
-                }
-            }
-            else
-            {
-                builder.Append("SST not found");
-                _sstGenerated = false;
-            }
-
-            _view.AppendToLog($"{_logEntryNumber++}: Kruskal's Algorithm:" +
-                              Environment.NewLine + 
-                              builder.ToString() + 
-                              $"Weight: {weight}" + 
-                              Environment.NewLine +
-                              $"Iterations: {iter}" + 
-                              Environment.NewLine + Environment.NewLine);
-            
-            dialog.SetData("Built SST");
-            _graphMatrix.OutputToFileWithKruskal();
-            UpdateViewGraphImage();
-        }
-
-        public void OnTotalSstCall(IPresenterConnectedDialog dialog)
-        {
-            int total = MinimumSpanningTree.TotalStAmount(_graphMatrix);
-            string totalStr = total > 0 ? total.ToString() : $"More than {Int32.MaxValue}";
-            _view.AppendToLog($"{_logEntryNumber++}: Kirchhoff's total amount of spanning trees:" +
-                              Environment.NewLine +
-                              $"Total amount: {totalStr}" +
-                              Environment.NewLine + Environment.NewLine);
-        }
-
-        public string OnGetPruferCall()
-        {
-            var (tree, vertices) = MinimumSpanningTree.GetPruferCode(_graphMatrix);
-            for (int i = 0; i < vertices.Count; ++i)
-            {
-                vertices[i] += 1;
-            }
-            string code = String.Join(" ", vertices);
-            if (code.Equals("")) code = "Empty";
-            
-            _view.AppendToLog($"{_logEntryNumber++}: Prufer's code:" +
-                              Environment.NewLine +
-                              "Matrix: " +
-                              Environment.NewLine +
-                              MatrixPrinter.GetMatrix(tree) +
-                              $"Code: {code}" +
-                              Environment.NewLine + Environment.NewLine);
-            
-            return code;
-        }
-
-        public void OnDecodePruferCall(List<int> code)
-        {
-            var graphMatrix = MinimumSpanningTree.DecodePrufer(code);
-            if (_graphMatrix == null)
-            {
-                _graphMatrix = new GraphMatrix(code.Count + 2, 1, -10, 10);
-                _graphMatrix.SetAdjacencyMatrix(graphMatrix);
-                _graphMatrix.SetWeightMatrix(graphMatrix);
-                _graphMatrix.SetSstMatrix(graphMatrix);
-                _graphGenerated = true;
-                _sstGenerated = true;
-                _flowNetworkGenerated = false;
-            }
-            else
-            {
-                _graphMatrix.SetSstMatrix(graphMatrix);
-            }
-
-            string pruferCode = String.Join(" ", code);
-            
-            _view.AppendToLog($"{_logEntryNumber++}: Prufer's Decode:" +
-                              Environment.NewLine +
-                              "Matrix: " +
-                              Environment.NewLine +
-                              MatrixPrinter.GetMatrix(graphMatrix) +
-                              $"Code: {pruferCode}" +
-                              Environment.NewLine + Environment.NewLine);
-            
-            _graphMatrix.OutputSst();
-            UpdateViewGraphImage();
-        }
-
-        public void OnCreateFlowNetworkCall()
-        {
-            FlowAlgorithms.TurnIntoFlowNetwork(_graphMatrix);
-            _flowNetworkGenerated = true;
-            
-            _view.AppendToLog($"{_logEntryNumber++}: Flow Network Generated:" +
-                              Environment.NewLine +
-                              "Adjacency Matrix: " +
-                              Environment.NewLine +
-                              MatrixPrinter.GetMatrix(_graphMatrix.GetAdjacencyMatrix()) +
-                              "Weight Matrix: " +
-                              Environment.NewLine + 
-                              MatrixPrinter.GetMatrix(_graphMatrix.GetWeightMatrix()) +
-                              "Capacities Matrix: " +
-                              Environment.NewLine +
-                              MatrixPrinter.GetMatrix(_graphMatrix.GetCapacitiesMatrix()) +
-                              Environment.NewLine);
-            
-            _graphMatrix.OutputToFile();
-            UpdateViewGraphImage();
-        }
-
-        public int OnMaxFlowCall()
-        {
-            int maxFlow = FlowAlgorithms.MaxFlow(_graphMatrix, 0, Vertices - 1);
-            
-            _view.AppendToLog($"{_logEntryNumber++}: Max Flow found:" +
-                              Environment.NewLine +
-                              $"Max Flow: {maxFlow}" +
-                              Environment.NewLine + Environment.NewLine);
-            return maxFlow;
-        }
-
-        public int OnMinCostFlowCall()
-        {
-            int maxFlow = OnMaxFlowCall();
-            (int minCostFlow, int cost) = FlowAlgorithms.MinCostFlow(
-                _graphMatrix,
-                0,
-                Vertices - 1,
-                maxFlow * 2 / 3);
-            
-            _view.AppendToLog($"{_logEntryNumber++}: Max Flow found:" +
-                              Environment.NewLine +
-                              $"Max Flow: {maxFlow}" +
-                              Environment.NewLine +
-                              $"2 * Max Flow / 3: {2 * maxFlow / 3}" +
-                              Environment.NewLine +
-                              $"Found Flow: {minCostFlow}" +
-                              Environment.NewLine +
-                              $"Found Flow cost: {cost}" +
-                              Environment.NewLine + Environment.NewLine);
-
-            return minCostFlow;
-        }
-        
         private void UpdateViewGraphImage()
         {
             string inputFile = Path.Combine(
@@ -364,37 +132,83 @@ namespace Graphs.Presenter
             return _flowNetworkGenerated;
         }
 
-        public void ResetGraph()
+        public bool WasModified()
         {
-            LoadSavedGraph();
-            _graphMatrix.OutputToFile();
-            _sstGenerated = false;
-            _flowNetworkGenerated = false;
-            UpdateViewGraphImage();
+            return _wasModified;
         }
 
-        public void SaveGraph()
+        public bool IsEulerian()
         {
-            if (_graphGenerated)
+            return _graphMatrix.IsEulerian();
+        }
+
+        public bool IsHamiltonian()
+        {
+            return _graphMatrix.IsHamiltonian();
+        }
+
+        #endregion
+
+        #region Matrices
+
+        public void OnShimbelAlgorithmCall(IPresenterConnectedDialog dialog, int edgesAmount, bool shortestPaths)
+        {
+            var matrix = ShimbelAlgorithm.FindPaths(_graphMatrix, edgesAmount, shortestPaths);
+
+            string matrixStr = MatrixPrinter.GetMatrix(matrix);
+
+            _view.AppendToLog($"{_logEntryNumber++}: Shimbel's Algorithm for " +
+                              (shortestPaths ? "shortest" : "longest") +
+                              $" paths ({edgesAmount} edges):" +
+                              Environment.NewLine +
+                              matrixStr + Environment.NewLine);
+
+            dialog.SetData(matrixStr);
+        }
+
+        public void OnCheckPathAlgorithmCall(IPresenterConnectedDialog dialog, int first, int second)
+        {
+            bool result = PathExistenceChecker.CheckPathExistence(_graphMatrix.GetAdjacencyMatrix(), first, second);
+            string data = $"Path between {first} and {second} " + (result ? "exists" : "doesn't exist");
+            _view.AppendToLog($"{_logEntryNumber++}: Check path:" +
+                              Environment.NewLine +
+                              data +
+                              Environment.NewLine + Environment.NewLine);
+            dialog.SetData(data);
+        }
+
+        #endregion
+
+        #region ShortestPaths
+
+        public void OnFindPathAlgorithmCall(
+            IPresenterConnectedDialog dialog,
+            int first,
+            int second,
+            bool dijkstra,
+            bool bellmanFord,
+            bool floyd)
+        {
+            string strPath;
+            if (dijkstra)
             {
-                _reservedGraph = _graphMatrix.GetCopy();
-//                _sstGenerated = false;
-//                _flowNetworkGenerated = false;
+                strPath = EvaluateDijkstra(first, second);
             }
-        }
-
-        public void LoadSavedGraph()
-        {
-            if (_reservedGraph != null)
+            else if (bellmanFord)
             {
-                _graphMatrix = _reservedGraph;
-                UpdateViewGraphImage();
+                strPath = EvaluateBellmanFord(first, second);
             }
+            else if (floyd)
+            {
+                strPath = EvaluateFloyd(first, second);
+            }
+            else
+            {
+                strPath = "Algorithm not specified error";
+            }
+
+            dialog.SetData(strPath);
         }
-
-        public int MaxVertices { get; }
-
-        public int Vertices => _graphMatrix.GetVerticesAmount();
 
         private string EvaluateDijkstra(int first, int second)
         {
@@ -405,7 +219,7 @@ namespace Graphs.Presenter
             string distance = "";
             string strPath = "";
             bool hasNegativeWeights = _graphMatrix.HasNegativeWeights();
-            
+
             if (!_graphMatrix.HasNegativeWeights())
             {
                 (path, dijkstraDistances, ancestorNodes, iterations) =
@@ -431,7 +245,7 @@ namespace Graphs.Presenter
                 hasNegativeWeights);
 
             if (strPath == "") strPath = "Graph has negative weights";
-            
+
             return strPath;
         }
 
@@ -444,7 +258,7 @@ namespace Graphs.Presenter
 
             (path, distances, iterations, hasNegativeCycles) =
                 ShortestPathFinder.BellmanFord(_graphMatrix.GetWeightMatrix(), first, second);
-            
+
             string distance = distances[second - 1] != Int32.MaxValue
                 ? distances[second - 1].ToString()
                 : "inf";
@@ -463,7 +277,7 @@ namespace Graphs.Presenter
                     " ", distances).Replace(
                     Int32.MaxValue.ToString(), "inf"),
                 hasNegativeCycles);
-            
+
             return strPath;
         }
 
@@ -476,7 +290,7 @@ namespace Graphs.Presenter
 
             (path, distances, iterations, hasNegativeCycle) =
                 ShortestPathFinder.Floyd(_graphMatrix.GetWeightMatrix(), first, second);
-            
+
             string distance = distances[first - 1, second - 1] != Int32.MaxValue
                 ? distances[first - 1, second - 1].ToString()
                 : "inf";
@@ -484,7 +298,7 @@ namespace Graphs.Presenter
                 ? String.Join(" -> ", path.ToArray())
                 : "Path doesn't exist";
 
-            
+
             var builder = new StringBuilder();
             for (int i = 0; i < distances.GetLength(0); ++i)
             {
@@ -502,8 +316,8 @@ namespace Graphs.Presenter
 
                 builder.AppendLine();
             }
-            
-            
+
+
             LogFloyd(
                 first,
                 second,
@@ -512,7 +326,7 @@ namespace Graphs.Presenter
                 iterations,
                 builder.ToString(),
                 hasNegativeCycle);
-            
+
             return strPath;
         }
 
@@ -533,6 +347,7 @@ namespace Graphs.Presenter
                     Environment.NewLine + Environment.NewLine);
                 return;
             }
+
             _view.AppendToLog($"{_logEntryNumber++}: Dijkstra Algorithm:" +
                               Environment.NewLine +
                               $"Path from {first} to {second}:" +
@@ -566,6 +381,7 @@ namespace Graphs.Presenter
                     Environment.NewLine + Environment.NewLine);
                 return;
             }
+
             _view.AppendToLog($"{_logEntryNumber++}: Bellman-Ford Algorithm:" +
                               Environment.NewLine +
                               $"Path from {first} to {second}:" +
@@ -598,6 +414,7 @@ namespace Graphs.Presenter
                     "Graph has negative cycle");
                 return;
             }
+
             _view.AppendToLog($"{_logEntryNumber++}: Floyd Algorithm:" +
                               Environment.NewLine +
                               $"Path from {first} to {second}:" +
@@ -613,5 +430,398 @@ namespace Graphs.Presenter
                               distances +
                               Environment.NewLine);
         }
+
+        #endregion
+
+        #region SpanningTrees
+
+        public void OnPrimAlgorithmCall(IPresenterConnectedDialog dialog)
+        {
+            (var tree, int iter) = MinimumSpanningTree.Prim(_graphMatrix);
+            var builder = new StringBuilder();
+            _sstGenerated = true;
+            int weight = 0;
+            if (tree.Count > 0)
+            {
+                for (int i = 0; i < tree.Count; ++i)
+                {
+                    builder.AppendLine((tree[i].Item1 + 1) + " <-> " + (tree[i].Item2 + 1));
+                    weight += _graphMatrix.GetWeightMatrix()[
+                        Math.Min(tree[i].Item1, tree[i].Item2),
+                        Math.Max(tree[i].Item1, tree[i].Item2)];
+                }
+            }
+            else
+            {
+                builder.Append("SST not found");
+                _sstGenerated = false;
+            }
+
+            _view.AppendToLog($"{_logEntryNumber++}: Prim's Algorithm:" +
+                              Environment.NewLine +
+                              builder.ToString() +
+                              $"Weight: {weight}" +
+                              Environment.NewLine +
+                              $"Iterations: {iter}" +
+                              Environment.NewLine + Environment.NewLine);
+
+            dialog.SetData("Built SST");
+            _graphMatrix.OutputToFileWithPrim();
+            UpdateViewGraphImage();
+        }
+
+        public void OnKruskalAlgorithmCall(IPresenterConnectedDialog dialog)
+        {
+            (var tree, int iter) = MinimumSpanningTree.Kruskal(_graphMatrix);
+            var builder = new StringBuilder();
+            _sstGenerated = true;
+            int weight = 0;
+            if (tree.Count > 0)
+            {
+                for (int i = 0; i < tree.Count; ++i)
+                {
+                    builder.AppendLine((tree[i].Item1 + 1) + " <-> " + (tree[i].Item2 + 1));
+                    weight += _graphMatrix.GetWeightMatrix()[
+                        Math.Min(tree[i].Item1, tree[i].Item2),
+                        Math.Max(tree[i].Item1, tree[i].Item2)];
+                }
+            }
+            else
+            {
+                builder.Append("SST not found");
+                _sstGenerated = false;
+            }
+
+            _view.AppendToLog($"{_logEntryNumber++}: Kruskal's Algorithm:" +
+                              Environment.NewLine +
+                              builder.ToString() +
+                              $"Weight: {weight}" +
+                              Environment.NewLine +
+                              $"Iterations: {iter}" +
+                              Environment.NewLine + Environment.NewLine);
+
+            dialog.SetData("Built SST");
+            _graphMatrix.OutputToFileWithKruskal();
+            UpdateViewGraphImage();
+        }
+
+        public void OnTotalSstCall(IPresenterConnectedDialog dialog)
+        {
+            int total = MinimumSpanningTree.TotalStAmount(_graphMatrix);
+            string totalStr = total > 0 ? total.ToString() : $"More than {Int32.MaxValue}";
+            _view.AppendToLog($"{_logEntryNumber++}: Kirchhoff's total amount of spanning trees:" +
+                              Environment.NewLine +
+                              $"Total amount: {totalStr}" +
+                              Environment.NewLine + Environment.NewLine);
+        }
+
+        public string OnGetPruferCall()
+        {
+            var (tree, vertices) = MinimumSpanningTree.GetPruferCode(_graphMatrix);
+            for (int i = 0; i < vertices.Count; ++i)
+            {
+                vertices[i] += 1;
+            }
+
+            string code = String.Join(" ", vertices);
+            if (code.Equals("")) code = "Empty";
+
+            _view.AppendToLog($"{_logEntryNumber++}: Prufer's code:" +
+                              Environment.NewLine +
+                              "Matrix: " +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(tree) +
+                              $"Code: {code}" +
+                              Environment.NewLine + Environment.NewLine);
+
+            return code;
+        }
+
+        public void OnDecodePruferCall(List<int> code)
+        {
+            var graphMatrix = MinimumSpanningTree.DecodePrufer(code);
+            if (_graphMatrix == null)
+            {
+                _graphMatrix = new GraphMatrix(code.Count + 2, 1, -10, 10);
+                _graphMatrix.SetAdjacencyMatrix(graphMatrix);
+                _graphMatrix.SetWeightMatrix(graphMatrix);
+                _graphMatrix.SetSstMatrix(graphMatrix);
+                _graphGenerated = false;
+                _sstGenerated = true;
+                _flowNetworkGenerated = false;
+            }
+            else
+            {
+                _graphMatrix.SetSstMatrix(graphMatrix);
+            }
+
+            string pruferCode = String.Join(" ", code);
+
+            _view.AppendToLog($"{_logEntryNumber++}: Prufer's Decode:" +
+                              Environment.NewLine +
+                              "Matrix: " +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(graphMatrix) +
+                              $"Code: {pruferCode}" +
+                              Environment.NewLine + Environment.NewLine);
+
+            _graphMatrix.OutputToFileSst();
+            UpdateViewGraphImage();
+        }
+
+        #endregion
+
+        #region Flow
+
+        public void OnCreateFlowNetworkCall()
+        {
+            FlowAlgorithms.TurnIntoFlowNetwork(_graphMatrix);
+            _flowNetworkGenerated = true;
+
+            _view.AppendToLog($"{_logEntryNumber++}: Flow Network Generated:" +
+                              Environment.NewLine +
+                              "Adjacency Matrix: " +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(_graphMatrix.GetAdjacencyMatrix()) +
+                              "Weight Matrix: " +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(_graphMatrix.GetWeightMatrix()) +
+                              "Capacities Matrix: " +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(_graphMatrix.GetCapacitiesMatrix()) +
+                              Environment.NewLine);
+
+            _graphMatrix.OutputToFile();
+            UpdateViewGraphImage();
+        }
+
+        public int OnMaxFlowCall()
+        {
+            (int maxFlow, var edgesSaturation) =
+                FlowAlgorithms.MaxFlow(_graphMatrix, 0, Vertices - 1);
+            string edges = GetFlowEdgesString(edgesSaturation);
+
+            _view.AppendToLog($"{_logEntryNumber++}: Max Flow found:" +
+                              Environment.NewLine +
+                              $"Max Flow: {maxFlow}" +
+                              Environment.NewLine +
+                              "Edges: " +
+                              Environment.NewLine +
+                              edges +
+                              Environment.NewLine + Environment.NewLine);
+            return maxFlow;
+        }
+
+        public int OnMinCostFlowCall()
+        {
+            int maxFlow = OnMaxFlowCall();
+            (int minCostFlow, int cost, var edgesSaturation) = FlowAlgorithms.MinCostFlow(
+                _graphMatrix,
+                0,
+                Vertices - 1,
+                maxFlow * 2 / 3);
+            string edges = GetFlowEdgesString(edgesSaturation);
+
+            _view.AppendToLog($"{_logEntryNumber++}: Max Flow found:" +
+                              Environment.NewLine +
+                              $"Max Flow: {maxFlow}" +
+                              Environment.NewLine +
+                              $"2 * Max Flow / 3: {2 * maxFlow / 3}" +
+                              Environment.NewLine +
+                              $"Found Flow: {minCostFlow}" +
+                              Environment.NewLine +
+                              $"Found Flow cost: {cost}" +
+                              Environment.NewLine +
+                              "Edges:" +
+                              Environment.NewLine +
+                              edges +
+                              Environment.NewLine + Environment.NewLine);
+
+            return minCostFlow;
+        }
+
+        private string GetFlowEdgesString(List<(int, int, int)> edgesSaturation)
+        {
+            var builder = new StringBuilder();
+
+            for (int i = 0; i < edgesSaturation.Count; i++)
+            {
+                builder.AppendLine((edgesSaturation[i].Item1 + 1) +
+                                   " -> " +
+                                   (edgesSaturation[i].Item2 + 1) +
+                                   ": " +
+                                   (edgesSaturation[i].Item3));
+            }
+
+            return builder.ToString();
+        }
+
+        #endregion
+
+        #region Cycles
+
+        public void OnMakeEulerianCall()
+        {
+            _graphMatrix = CyclesAlgorithms.MakeEulerian(_graphMatrix);
+            _wasModified = true;
+            if (Vertices > 2)
+                _graphMatrix.OutputToFileUndirected();
+            else
+                _graphMatrix.OutputToFile();
+
+            _view.AppendToLog($"{_logEntryNumber++}: Created Eulerian Graph:" +
+                              Environment.NewLine +
+                              "Adjacency matrix:" +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(_graphMatrix.GetAdjacencyMatrix()) +
+                              "Weight Matrix:" +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(_graphMatrix.GetWeightMatrix()) +
+                              Environment.NewLine);
+
+            UpdateViewGraphImage();
+        }
+
+        public void OnMakeHamiltonianCall()
+        {
+            _graphMatrix = CyclesAlgorithms.MakeHamiltonian(_graphMatrix);
+            _wasModified = true;
+            if (Vertices > 2)
+                _graphMatrix.OutputToFileUndirected();
+            else
+                _graphMatrix.OutputToFile();
+
+            _view.AppendToLog($"{_logEntryNumber++}: Created Hamiltonian Graph:" +
+                              Environment.NewLine +
+                              "Adjacency matrix:" +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(_graphMatrix.GetAdjacencyMatrix()) +
+                              "Weight Matrix:" +
+                              Environment.NewLine +
+                              MatrixPrinter.GetMatrix(_graphMatrix.GetWeightMatrix()) +
+                              Environment.NewLine);
+
+            UpdateViewGraphImage();
+        }
+
+        public void OnFindEulerianCycleCall()
+        {
+            var cycle = CyclesAlgorithms.FindEulerianCycle(_graphMatrix);
+            string path;
+
+            if (Vertices > 2)
+            {
+                _graphMatrix.OutputToFileDirectedPath(cycle);
+                path = String.Join(" -- ", cycle.Select(x => x += 1).ToArray());
+            }
+            else
+            {
+                _graphMatrix.OutputToFileDirectedPath(new List<int> {0, 1, 0});
+                path = "1 -- 2 -- 1";
+            }
+
+            _view.AppendToLog($"{_logEntryNumber++}: Found Eulerian Cycle:" +
+                              Environment.NewLine +
+                              $"Cycle: {path}" +
+                              Environment.NewLine + Environment.NewLine);
+
+            UpdateViewGraphImage();
+        }
+
+        public void OnFindHamiltonianCycleCall()
+        {
+            List<List<int>> cycles;
+            if (Vertices > 2)
+                cycles = CyclesAlgorithms.FindHamiltonianCycles(_graphMatrix);
+            else
+                cycles = new List<List<int>>{new List<int>{0, 1, 0}};
+            int minWeight = Int32.MaxValue;
+            var cycleWeights = new int[cycles.Count];
+            List<int> minCycle = null;
+            var weightMatrix = _graphMatrix.GetWeightMatrix();
+
+            for (int i = 0; i < cycles.Count; ++i)
+            {
+                int currWeight = 0;
+                for (int j = 0; j < cycles[i].Count - 1; ++j)
+                {
+                    currWeight += weightMatrix[cycles[i][j], cycles[i][j + 1]];
+                }
+
+                cycleWeights[i] = currWeight;
+
+                if (currWeight < minWeight)
+                {
+                    minWeight = currWeight;
+                    minCycle = cycles[i];
+                }
+            }
+
+            _graphMatrix.OutputToFilePath(minCycle);
+
+            var builder = new StringBuilder();
+            foreach (int vertex in minCycle)
+            {
+                builder.Append((vertex + 1) + " -- ");
+            }
+            string path = builder.ToString(0, builder.Length - 4);
+            builder.Clear();
+            
+            for (int i = 0; i < cycles.Count; ++i)
+            {
+                
+                builder.Append(
+                    String.Join(" -- ", cycles[i].Select(x => x += 1).ToArray()));
+                builder.AppendLine($": {cycleWeights[i]}");
+            }
+
+            _view.AppendToLog($"{_logEntryNumber++}: Found Hamiltonian Cycles:" +
+                              Environment.NewLine +
+                              $"Min Weight Cycle: {path} : {minWeight}" +
+                              Environment.NewLine +
+                              "All Cycles:" +
+                              Environment.NewLine +
+                              builder.ToString() +
+                              Environment.NewLine + Environment.NewLine);
+
+            UpdateViewGraphImage();
+        }
+
+        #endregion
+
+        #region SaveLoad
+
+        public void ResetGraph()
+        {
+            LoadSavedGraph();
+            _graphMatrix.OutputToFile();
+            _sstGenerated = false;
+            _flowNetworkGenerated = false;
+            _wasModified = false;
+            UpdateViewGraphImage();
+        }
+
+        public void SaveGraph()
+        {
+            if (_graphGenerated)
+            {
+                _reservedGraph = _graphMatrix.GetCopy();
+            }
+        }
+
+        public void LoadSavedGraph()
+        {
+            if (_reservedGraph != null)
+            {
+                _graphMatrix = _reservedGraph;
+                UpdateViewGraphImage();
+            }
+        }
+
+        #endregion
+
+        public int MaxVertices { get; }
+
+        public int Vertices => _graphMatrix.GetNumberOfVertices();
     }
 }

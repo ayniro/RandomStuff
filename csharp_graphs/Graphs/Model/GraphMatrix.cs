@@ -91,6 +91,142 @@ namespace Graphs.Model
             }
         }
 
+        public int GetRandom()
+        {
+            return Rnd.Next(_minWeight, _maxWeight);
+        }
+
+        public int GetDegree(int v)
+        {
+            int degree = 0;
+            for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
+            {
+                if (_adjacencyMatrix[v, i] == 1)
+                    degree++;
+            }
+
+            return degree;
+        }
+
+        public bool IsEulerian()
+        {
+            for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
+            {
+                int degree = 0;
+                for (int j = 0; j < _adjacencyMatrix.GetLength(0); ++j)
+                {
+                    if (_adjacencyMatrix[i, j] == 1)
+                        degree++;
+                }
+
+                if (degree % 2 != 0)
+                    return false;
+            }
+
+            return true;
+        }
+        
+        public bool IsHamiltonian()
+        {
+            int vertices = GetNumberOfVertices();
+            for (int i = 0; i < vertices; ++i)
+            {
+                int degree = 0;
+                for (int j = 0; j < vertices; ++j)
+                {
+                    if (_adjacencyMatrix[i, j] == 1)
+                        degree++;
+                }
+
+                if (degree < vertices / 2 + vertices % 2)
+                    return false;
+            }
+
+            return true;
+        }
+        
+        public void AddEdge(int first, int second)
+        {
+            _adjacencyMatrix[first, second] = 1;
+            _adjacencyMatrix[second, first] = 1;
+            _weightMatrix[first, second] = GetRandom();
+            _weightMatrix[second, first] = _weightMatrix[first, second];
+        }
+
+        public void DeleteEdge(int first, int second)
+        {
+            _adjacencyMatrix[first, second] = 0;
+            _adjacencyMatrix[second, first] = 0;
+            _weightMatrix[first, second] = 0;
+            _weightMatrix[second, first] = 0;
+        }
+
+        public bool HasEdge(int first, int second)
+        {
+            return _adjacencyMatrix[first, second] == 1;
+        }
+        
+        public List<int> GetOddVertices()
+        {
+            var oddVertices = new List<int>();
+
+            for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
+            {
+                int degree = 0;
+                for (int j = 0; j < _adjacencyMatrix.GetLength(0); ++j)
+                {
+                    if (_adjacencyMatrix[i, j] != 0)
+                    {
+                        degree++;
+                    }
+                }
+
+                if (degree % 2 != 0)
+                {
+                    oddVertices.Add(i);
+                }
+            }
+
+            return oddVertices;
+        }
+        
+        public List<int> GetAdjacentVertices(int v)
+        {
+            var adjVertices = new List<int>();
+
+            for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
+            {
+                if (HasEdge(v, i))
+                    adjVertices.Add(i);
+            }
+
+            return adjVertices;
+        }
+        
+        public List<int> GetUnconnected()
+        {
+            var unconnected = new List<int>();
+
+            for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
+            {
+                int degree = 0;
+                for (int j = 0; j < _adjacencyMatrix.GetLength(0); ++j)
+                {
+                    if (_adjacencyMatrix[i, j] != 0)
+                    {
+                        degree++;
+                    }
+                }
+
+                if (degree == 0)
+                {
+                    unconnected.Add(i);
+                }
+            }
+
+            return unconnected;
+        }
+        
         public void GenerateFlowNetworkFromThis(int maxCapacity)
         {
             var sinks = new List<int>();
@@ -141,14 +277,7 @@ namespace Graphs.Model
             {
                 InitFlowCapacities(maxCapacity, -1);
             }
-            
-//            int lastSink = _weightMatrix.GetLength(0) - 1;
-//            foreach (int sink in sinks)
-//            {
-//                _adjacencyMatrix[sink, lastSink] = 1;
-//                _weightMatrix[sink, lastSink] = Rnd.Next(_minWeight, _maxWeight);
-//            }
-            
+
             _sstWeightMatrix = null;
         }
 
@@ -205,7 +334,7 @@ namespace Graphs.Model
         }
 
         
-        public int GetVerticesAmount()
+        public int GetNumberOfVertices()
         {
             return _adjacencyMatrix.GetLength(0);
         }
@@ -287,21 +416,11 @@ namespace Graphs.Model
 
             return false;
         }
-
-        public bool IsDirected()
-        {
-            throw new NotImplementedException();
-        }
-
-        public void MakeDirected()
-        {
-            throw new NotImplementedException();
-        }
         
         public void OutputToFile(string fileName = "graph.txt")
         {
             var stringBuilder = new StringBuilder("digraph {" + Environment.NewLine);
-            //stringBuilder.AppendLine("rankdir=LR");
+            
             for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
             {
                 for (int j = 0; j < _adjacencyMatrix.GetLength(0); ++j)
@@ -335,7 +454,50 @@ namespace Graphs.Model
                 stringBuilder.ToString());
         }
 
-        public void OutputSst(string fileName = "graph.txt")
+        public void OutputToFileUndirected(string fileName = "graph.txt")
+        {
+            var stringBuilder = new StringBuilder("graph {" + Environment.NewLine);
+            
+            for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
+            {
+                for (int j = i + 1; j < _adjacencyMatrix.GetLength(0); ++j)
+                {
+                    if (_adjacencyMatrix[i, j] == 1)
+                    { 
+                        stringBuilder.AppendLine(
+                            $"{i + 1} -- {j + 1} [label={_weightMatrix[i, j]}]");
+                    }
+                }
+            }
+
+            stringBuilder.AppendLine("}\n");
+
+            File.WriteAllText(
+                Path.Combine(
+                    System.Environment.CurrentDirectory, "Graphs/", fileName),
+                stringBuilder.ToString());
+        }
+        
+        public void OutputToFileDirectedPath(List<int> path, string fileName = "graph.txt")
+        {
+            var stringBuilder = new StringBuilder("digraph {" + Environment.NewLine);
+
+            stringBuilder.AppendLine($"{path[0] + 1} [color=red]");
+            for (int i = 0; i < path.Count - 1; ++i)
+            {
+                stringBuilder.AppendLine(
+                    $"{path[i] + 1} -> {path[i + 1] + 1} [label=\"{i + 1}\"]");
+            }
+            
+            stringBuilder.AppendLine("}\n");
+
+            File.WriteAllText(
+                Path.Combine(
+                    System.Environment.CurrentDirectory, "Graphs/", fileName),
+                stringBuilder.ToString());
+        }
+
+        public void OutputToFileSst(string fileName = "graph.txt")
         {
             var stringBuilder = new StringBuilder("graph {" + Environment.NewLine);
             for (int i = 0; i < _sstWeightMatrix.GetLength(0); ++i)
@@ -367,8 +529,56 @@ namespace Graphs.Model
         {
             OutputToFileWithPath(Algorithms.MinimumSpanningTree.Kruskal(this).Item1);
         }
+
+        public void OutputToFilePath(List<int> path, string fileName = "graph.txt")
+        {
+            var stringBuilder = new StringBuilder("digraph {" + Environment.NewLine);
+            
+            for (int i = 0; i < _adjacencyMatrix.GetLength(0); ++i)
+            {
+                for (int j = i + 1; j < _adjacencyMatrix.GetLength(0); ++j)
+                {
+                    if (_adjacencyMatrix[i, j] == 1)
+                    {
+                        stringBuilder.AppendLine(
+                            $"{i + 1} -> {j + 1} [dir=none, label=\"{_weightMatrix[i, j]}\"]");
+                    }
+                }
+            }
+            
+            for (int i = 0; i < path.Count - 1; ++i)
+            {
+                int first = path[i] + 1;
+                int second = path[i + 1] + 1;
+                stringBuilder.Replace(
+                    $"{first} -> {second} " +
+                    $"[dir=none, label=\"{_weightMatrix[first - 1, second - 1]}\"]",
+                    $"{first} -> {second} " +
+                    $"[label=\"{_weightMatrix[first - 1, second - 1]}\", " +
+                    "dir=forward, color=red]");
+                stringBuilder.Replace(
+                    $"{second} -> {first} " +
+                    $"[dir=none, label=\"{_weightMatrix[second - 1, first - 1]}\"]",
+                    $"{second} -> {first} " +
+                    $"[label=\"{_weightMatrix[second - 1, first - 1]}\", " +
+                    "dir=back, color=red]");
+            }
+
+            if (GetNumberOfVertices() == 2)
+            {
+                stringBuilder.AppendLine(
+                    $"2 -> 1 [dir=forward, label=\"{_weightMatrix[1, 0]}\", color=red]");
+            }
+            
+            stringBuilder.AppendLine("}\n");
+
+            File.WriteAllText(
+                Path.Combine(
+                    System.Environment.CurrentDirectory, "Graphs/", fileName),
+                stringBuilder.ToString());
+        }
         
-        public void OutputToFileWithPath(List<(int, int)> edges, string fileName = "graph.txt")
+        private void OutputToFileWithPath(List<(int, int)> edges, string fileName = "graph.txt")
         {
             var stringBuilder = new StringBuilder("digraph {" + Environment.NewLine);
             
@@ -492,7 +702,5 @@ namespace Graphs.Model
 
             return x;
         }
-        
-        
     }
 }

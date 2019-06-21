@@ -9,9 +9,9 @@ namespace Graphs.Model.Algorithms
         public static (List<(int, int)>, int) Prim(GraphMatrix g)
         {
             var returnTree = new List<(int, int)>();
-            var used = new bool[g.GetVerticesAmount()];
-            var minEdgeWeight = new int[g.GetVerticesAmount()];
-            var endOfMinEdge = new int[g.GetVerticesAmount()];
+            var used = new bool[g.GetNumberOfVertices()];
+            var minEdgeWeight = new int[g.GetNumberOfVertices()];
+            var endOfMinEdge = new int[g.GetNumberOfVertices()];
             var matrix = GetPrimMatrix(GetOrientedMatrix(g));
             int iter = 0;
             bool hasMST = true;
@@ -20,10 +20,10 @@ namespace Graphs.Model.Algorithms
 
             minEdgeWeight[0] = 0;
             
-            for (int i = 0; i < g.GetVerticesAmount(); ++i)
+            for (int i = 0; i < g.GetNumberOfVertices(); ++i)
             {
                 int minVertex = -1;
-                for (int j = 0; j < g.GetVerticesAmount(); ++j)
+                for (int j = 0; j < g.GetNumberOfVertices(); ++j)
                 {
                     if (!used[j] && (minVertex == -1 || minEdgeWeight[j] < minEdgeWeight[minVertex]))
                     {
@@ -44,7 +44,7 @@ namespace Graphs.Model.Algorithms
                     returnTree.Add((minVertex, endOfMinEdge[minVertex]));
                 }
 
-                for (int j = 0; j < g.GetVerticesAmount(); ++j)
+                for (int j = 0; j < g.GetNumberOfVertices(); ++j)
                 {
                     if (matrix[minVertex, j] < minEdgeWeight[j])
                     {
@@ -65,7 +65,7 @@ namespace Graphs.Model.Algorithms
         {
             var edges = GetKruskalEdges(g);
             var spanningTree = new List<(int, int)>();
-            var vertexTree = new int[g.GetVerticesAmount()];
+            var vertexTree = new int[g.GetNumberOfVertices()];
             int iter = 0;
             
             for (int i = 0; i < vertexTree.Length; ++i)
@@ -85,7 +85,7 @@ namespace Graphs.Model.Algorithms
                     int oldVertexTree = vertexTree[second];
                     int newVertexTree = vertexTree[first];
 
-                    for (int j = 0; j < g.GetVerticesAmount(); ++j)
+                    for (int j = 0; j < g.GetNumberOfVertices(); ++j)
                     {
                         if (vertexTree[j] == oldVertexTree)
                             vertexTree[j] = newVertexTree;
@@ -131,13 +131,13 @@ namespace Graphs.Model.Algorithms
 //
 //            return CalculateKirchhoffDeterminant(kirchhoffMatrix);
 
-            var kirchhoffMatrix = new double[g.GetVerticesAmount(), g.GetVerticesAmount()];
+            var kirchhoffMatrix = new double[g.GetNumberOfVertices(), g.GetNumberOfVertices()];
             var orientedMatrix = GetOrientedMatrix(g);
 
-            for (int i = 0; i < g.GetVerticesAmount(); ++i)
+            for (int i = 0; i < g.GetNumberOfVertices(); ++i)
             {
                 int degree = 0;
-                for (int j = 0; j < g.GetVerticesAmount(); ++j)
+                for (int j = 0; j < g.GetNumberOfVertices(); ++j)
                 {
                     if (orientedMatrix[i, j] != 0 || orientedMatrix[j, i] != 0)
                     {
@@ -166,7 +166,7 @@ namespace Graphs.Model.Algorithms
         public static (int[,], List<int>) GetPruferCode(GraphMatrix g)
         {
             var tree = g.GetSstMatrix();
-            var verticesTaken = new bool[g.GetVerticesAmount()];
+            var verticesTaken = new bool[g.GetNumberOfVertices()];
             int verticesTakenAmount = 0;
             var vertices = new List<int>();
 
@@ -315,9 +315,9 @@ namespace Graphs.Model.Algorithms
             var edges = new List<(int, int, int)>();
             var matrix = g.GetWeightMatrix();
             
-            for (int i = 0; i < g.GetVerticesAmount(); ++i)
+            for (int i = 0; i < g.GetNumberOfVertices(); ++i)
             {
-                for (int j = 0; j < g.GetVerticesAmount(); j++)
+                for (int j = 0; j < g.GetNumberOfVertices(); j++)
                 {
                     if (matrix[i, j] != 0)
                     {
@@ -358,7 +358,7 @@ namespace Graphs.Model.Algorithms
 
         private static int[,] GetSstMatrix(GraphMatrix m, List<(int, int)> edges)
         {
-            var matrix = new int[m.GetVerticesAmount(), m.GetVerticesAmount()];
+            var matrix = new int[m.GetNumberOfVertices(), m.GetNumberOfVertices()];
 
             foreach (var edge in edges)
             {

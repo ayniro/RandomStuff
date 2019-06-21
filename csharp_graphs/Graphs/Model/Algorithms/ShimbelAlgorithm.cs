@@ -7,11 +7,11 @@ namespace Graphs.Model.Algorithms
         public static int[,] FindPaths(GraphMatrix graphMatrix, int pathLength, bool shortest = true)
         {
             var shimbelMatrix = new int[
-                graphMatrix.GetVerticesAmount(),
-                graphMatrix.GetVerticesAmount()];
+                graphMatrix.GetNumberOfVertices(),
+                graphMatrix.GetNumberOfVertices()];
             var multiplyMatrix = new int[
-                graphMatrix.GetVerticesAmount(),
-                graphMatrix.GetVerticesAmount()];
+                graphMatrix.GetNumberOfVertices(),
+                graphMatrix.GetNumberOfVertices()];
 
             Array.Copy(
                 graphMatrix.GetWeightMatrix(),

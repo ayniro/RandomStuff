@@ -241,9 +241,107 @@ namespace Graphs.View
                 }
             };
 
-            var checkEuler = UiElements.GetButton("Make Eulerian");
-            var checkHamiltonian = UiElements.GetButton("Make Hamiltonian");
+            var makeEulerian = UiElements.GetButton("Make Eulerian");
+            makeEulerian.EventMouseClick += (sender, args) =>
+            {
+                if (_presenter.IsGraphGenerated())
+                {
+                    if (!_presenter.WasModified())
+                    {
+                        _presenter.OnMakeEulerianCall();
+                    }
+                    else
+                    {
+                        ShowPopUp("Reset modified graph");
+                    }
+                }
+                else
+                {
+                    ShowPopUp("Generate graph first");
+                }
+            };
+            
+            var makeHamiltonian = UiElements.GetButton("Make Hamiltonian");
+            makeHamiltonian.EventMouseClick += (sender, args) =>
+            {
+                if (_presenter.IsGraphGenerated())
+                {
+                    if (!_presenter.WasModified())
+                    {
+                        _presenter.OnMakeHamiltonianCall();
+                    }
+                    else
+                    {
+                        ShowPopUp("Reset modified graph");
+                    }
+                }
+                else
+                {
+                    ShowPopUp("Generate graph first");
+                }
+            };
 
+            var findEulerianCycle = UiElements.GetButton("Find Eulerian Cycle");
+            findEulerianCycle.EventMouseClick += (sender, args) =>
+            {
+                if (_presenter.IsGraphGenerated())
+                {
+                    if (_presenter.WasModified())
+                    {
+                        if (_presenter.IsEulerian() || _presenter.Vertices == 2)
+                        {
+                            _presenter.OnFindEulerianCycleCall();
+                        }
+                        else
+                        {
+                            ShowPopUp("Graph is not eulerian");
+                        }
+                    }
+                    else
+                    {
+                        ShowPopUp("Create eulerian graph first");
+                    }
+                }
+                else
+                {
+                    ShowPopUp("Generate graph first");
+                }
+            };
+            
+            var findHamiltonianCycle = UiElements.GetButton("Find Hamiltonian Cycle");
+            findHamiltonianCycle.EventMouseClick += (sender, args) =>
+            {
+                if (_presenter.IsGraphGenerated())
+                {
+                    if (_presenter.WasModified())
+                    {
+                        if (_presenter.IsHamiltonian())
+                        {
+                            if (_presenter.Vertices <= 8)
+                            {
+                                _presenter.OnFindHamiltonianCycleCall();
+                            }
+                            else
+                            {
+                                ShowPopUp("There should be <= 7 vertices");
+                            }
+                        }
+                        else
+                        {
+                            ShowPopUp("Graph is not hamiltonian");
+                        }
+                    }
+                    else
+                    {
+                        ShowPopUp("Create hamiltonian graph first");
+                    }
+                }
+                else
+                {
+                    ShowPopUp("Generate graph first");
+                }
+            };
+            
             _buttonsList.AddItems(
                 generateButton,
                 shimbelButton,
@@ -255,8 +353,10 @@ namespace Graphs.View
                 generateFlowNetwork,
                 findMaxFlow,
                 findMinCostFlow,
-                checkEuler,
-                checkHamiltonian);
+                makeEulerian,
+                makeHamiltonian,
+                findEulerianCycle,
+                findHamiltonianCycle);
         }
 
         private void PopulateToolbar()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Graphs.Utility;
 
 namespace Graphs.Model.Algorithms
 {
@@ -10,10 +11,11 @@ namespace Graphs.Model.Algorithms
             g.GenerateFlowNetworkFromThis(100);
         }
 
-        public static int MaxFlow(GraphMatrix g, int s, int t)
+        public static (int, List<(int, int, int)>) MaxFlow(GraphMatrix g, int s, int t)
         {
             var graph = g.GetCapacitiesMatrix();
             var resGraph = new int[graph.GetLength(0), graph.GetLength(0)];
+            var edgesSaturation = new List<(int, int, int)>();
             Array.Copy(graph, resGraph, graph.Length);
 
             var parents = new int[graph.GetLength(0)];
@@ -38,22 +40,34 @@ namespace Graphs.Model.Algorithms
                 maxFlow += pathFlow;
             }
             
-            return maxFlow;
+            for (int i = 0; i < resGraph.GetLength(0); ++i)
+            {
+                for (int j = i + 1; j < resGraph.GetLength(0); j++)
+                {
+                    if (resGraph[j, i] != 0)
+                    {
+                        edgesSaturation.Add((i, j, resGraph[j, i]));
+                    }
+                }
+            }
+            
+            return (maxFlow, edgesSaturation);
         }
 
-        public static (int, int) MinCostFlow(GraphMatrix g, int s, int t, int flow)
+        public static (int, int, List<(int, int, int)>) MinCostFlow(GraphMatrix g, int s, int t, int flow)
         {
             var graph = g.GetCapacitiesMatrix();
             var weights = g.GetWeightMatrix();
             var adjMatrix = g.GetAdjacencyMatrix();
             var resGraph = new int[graph.GetLength(0), graph.GetLength(0)];
+            var edgesSaturation = new List<(int, int, int)>();
             Array.Copy(graph, resGraph, graph.Length);
             int maxFlow = 0;
             int flowCost = 0;
 
             var (shortestPath, distances) =
                 FlowBellmanFord(weights, adjMatrix, resGraph, s, t);
-
+            
             while (shortestPath.Count != 0)
             {
                 int pathFlow = flow - maxFlow;
@@ -67,19 +81,31 @@ namespace Graphs.Model.Algorithms
                 maxFlow += pathFlow;
                 flowCost += (maxFlow >= flow ? pathFlow - (maxFlow - flow) : pathFlow) *
                             distances[t];
-                if (maxFlow >= flow) break;
-
+                
                 for (int i = shortestPath.Count - 1; i > 0; --i)
                 {
                     resGraph[shortestPath[i - 1], shortestPath[i]] -= pathFlow;
                     resGraph[shortestPath[i], shortestPath[i - 1]] += pathFlow;
                 }
+                
+                if (maxFlow >= flow) break;
 
                 (shortestPath, distances) =
                     FlowBellmanFord(weights, adjMatrix, resGraph, s, t);
             }
 
-            return (maxFlow > flow ? flow : maxFlow, flowCost);
+            for (int i = 0; i < resGraph.GetLength(0); ++i)
+            {
+                for (int j = i + 1; j < resGraph.GetLength(0); j++)
+                {
+                    if (resGraph[j, i] != 0)
+                    {
+                        edgesSaturation.Add((i, j, resGraph[j, i]));
+                    }
+                }
+            }
+
+            return (maxFlow > flow ? flow : maxFlow, flowCost, edgesSaturation);
         }
 
         private static (List<int>, int[]) FlowBellmanFord(int[,] weightMatrix, int[,] adjMatrix, int[,] resGraph, int first, int second)

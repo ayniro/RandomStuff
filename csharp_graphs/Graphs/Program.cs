@@ -17,6 +17,12 @@ namespace Graphs
             var view = new GraphView();
             view.Show();
 
+
+//            var g = new GraphMatrix(3, 1, 1, 1);
+//            g.SetAdjacencyMatrix(new [,]{{0, 1, 0}, {0, 0, 1}, {0, 0, 0}});
+//            g.SetWeightMatrix(new [,]{{0, 1, 0}, {0, 0, 1}, {0, 0, 0}});
+//            CyclesAlgorithms.MakeEulerian(g);
+
 //              var g = new GraphMatrix(2, 1, 2, 2);
 //              g.GenerateGraph();
 //              g.GenerateFlowNetworkFromThis(100);
